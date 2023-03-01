@@ -44,7 +44,12 @@ public class FrameworkBridge {
     public enum BridgedHeuristics {
         PlaceInterestingness(new AnnotatedTreeHeuristic("Place Interestingness", EventuallyFollowsTreeHeuristic.Builder::new)),
         BFS_Emulation(new AnnotatedTreeHeuristic("BFS Emulation", () -> () -> HeuristicUtils.<PlaceNode>bfs())),
-        DFS_Emulation(new AnnotatedTreeHeuristic("DFS Emulation", () -> () -> HeuristicUtils.<PlaceNode>dfs()));
+        DFS_Emulation(new AnnotatedTreeHeuristic("DFS Emulation", () -> () -> HeuristicUtils.<PlaceNode>dfs())),
+        DirectlyFollows(new AnnotatedTreeHeuristic("Directly-Follows", DirectlyFollowsTreeTraversalHeuristic.Builder::new)),
+        AvgFirstOccIndexDelta(new AnnotatedTreeHeuristic("AvgFirstOccIndexDelta", AvgFirstOccIndexDeltaTreeTraversalHeuristic.Builder::new)),
+        EventuallyFollows(new AnnotatedTreeHeuristic("Eventually-Follows", EventuallyFollowsTreeTraversalHeuristic.Builder::new)),
+        GreedyETCPrecision(new AnnotatedTreeHeuristic("GreedyETCPrecision", GreedyETCPrecisionTreeTraversalHeuristic.Builder::new)),;
+
 
         private final AnnotatedTreeHeuristic bth;
 

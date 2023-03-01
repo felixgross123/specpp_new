@@ -6,10 +6,7 @@ import org.processmining.framework.util.ui.widgets.ProMTable;
 import org.processmining.specpp.composition.events.CandidateAcceptanceRevoked;
 import org.processmining.specpp.composition.events.CandidateAccepted;
 import org.processmining.specpp.composition.events.CandidateRejected;
-import org.processmining.specpp.datastructures.tree.constraints.ClinicallyOverfedPlace;
-import org.processmining.specpp.datastructures.tree.constraints.ClinicallyUnderfedPlace;
-import org.processmining.specpp.datastructures.tree.constraints.CullPostsetChildren;
-import org.processmining.specpp.datastructures.tree.constraints.CullPresetChildren;
+import org.processmining.specpp.datastructures.tree.constraints.*;
 import org.processmining.specpp.datastructures.tree.events.*;
 import org.processmining.specpp.prom.alg.LiveEvents;
 import org.processmining.specpp.prom.computations.ComputationEnded;
@@ -45,6 +42,8 @@ public class EventTable extends JPanel implements Destructible, Observer<Computa
                                                                                                                                 .put(new ClassKey<>(HeuristicComputationEvent.class), "Tree node heuristics were computed")
                                                                                                                                 .put(new ClassKey<>(CullPresetChildren.class), "A tree nodes preset expansion subtree was cutoff")
                                                                                                                                 .put(new ClassKey<>(CullPostsetChildren.class), "A tree nodes postset expansion subtree was cutoff")
+                                                                                                                                //addition
+                                                                                                                                .put(new ClassKey<>(ETCPrecisionCutOffConstraint.class), "A tree nodes subtrees were cutoff (postset met ETC-Precision threshold)")
                                                                                                                                 .build();
 
     public EventTable(LiveEvents liveEvents) {

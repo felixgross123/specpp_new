@@ -27,6 +27,7 @@ import org.processmining.specpp.datastructures.tree.nodegen.PlaceNode;
 import org.processmining.specpp.datastructures.tree.nodegen.PlaceState;
 import org.processmining.specpp.evaluation.heuristics.DirectlyFollowsHeuristic;
 import org.processmining.specpp.evaluation.heuristics.TreeHeuristicThreshold;
+import org.processmining.specpp.evaluation.heuristics.UpdatingGreedyETCPrecisionTreeTraversalHeuristic;
 import org.processmining.specpp.evaluation.implicitness.LPBasedImplicitnessCalculator;
 import org.processmining.specpp.evaluation.markings.LogHistoryMaker;
 import org.processmining.specpp.prom.alg.FrameworkBridge;
@@ -86,21 +87,36 @@ public class ConfigurationController extends AbstractStageController {
             pcCfg.terminalComposition(LightweightPlaceComposition::new);
             if (compositionConstraintsRequired) pcCfg.recursiveCompositions(ConstrainingPlaceCollection::new);
         }
-        if (pc.ciprVariant != ProMConfig.CIPRVariant.None)
-            pcCfg.terminalComposer(isSupervisingEvents ? EventingPlaceComposerWithCIPR::new : PlaceComposerWithCIPR::new);
-        else pcCfg.terminalComposer(PlaceAccepter::new);
-        InitializingBuilder<? extends ComposerComponent<Place, AdvancedComposition<Place>, CollectionOfPlaces>, ComposerComponent<Place, AdvancedComposition<Place>, CollectionOfPlaces>> fitnessFilterBuilder = isSupervisingEvents ? EventingPlaceFitnessFilter::new : PlaceFitnessFilter::new;
-        switch (pc.compositionStrategy) {
-            case Standard:
-                pcCfg.recursiveComposers(fitnessFilterBuilder);
-                break;
-            case TauDelta:
-                pcCfg.recursiveComposers(fitnessFilterBuilder, DeltaComposer::new);
-                break;
-            case Uniwired:
-                pcCfg.recursiveComposers(fitnessFilterBuilder, UniwiredComposer::new);
-                break;
+
+        //start change
+        if (pc.useETCPrecisionBasedComposer) {
+            pcCfg.terminalComposer(ETCPrecisionBasedComposer::new);
+        } else {
+            if (pc.treeExpansionSetting == ProMConfig.TreeExpansionSetting.Heuristic && pc.treeHeuristic == FrameworkBridge.BridgedHeuristics.GreedyETCPrecision.getBridge())
+                pcCfg.terminalComposer(ETCPrecisionBasedComposer_Dummy::new);
+            else if (pc.ciprVariant != ProMConfig.CIPRVariant.None)
+                pcCfg.terminalComposer(isSupervisingEvents ? EventingPlaceComposerWithCIPR::new : PlaceComposerWithCIPR::new);
+            else pcCfg.terminalComposer(PlaceAccepter::new);
         }
+
+        InitializingBuilder<? extends ComposerComponent<Place, AdvancedComposition<Place>, CollectionOfPlaces>, ComposerComponent<Place, AdvancedComposition<Place>, CollectionOfPlaces>> fitnessFilterBuilder = isSupervisingEvents ? EventingPlaceFitnessFilter::new : PlaceFitnessFilter::new;
+
+        if (pc.useETCPrecisionBasedComposer && pc.cutOff) {
+            pcCfg.recursiveComposers(ETCPrecisionCutOff::new, fitnessFilterBuilder);
+        } else {
+            switch (pc.compositionStrategy) {
+                case Standard:
+                    pcCfg.recursiveComposers(fitnessFilterBuilder);
+                    break;
+                case TauDelta:
+                    pcCfg.recursiveComposers(fitnessFilterBuilder, DeltaComposer::new);
+                    break;
+                case Uniwired:
+                    pcCfg.recursiveComposers(fitnessFilterBuilder, UniwiredComposer::new);
+                    break;
+            }
+        }
+        //end change
 
         // ** EVALUATION ** //
         EvaluatorConfiguration.Configurator evCfg = new EvaluatorConfiguration.Configurator();
@@ -117,10 +133,22 @@ public class ConfigurationController extends AbstractStageController {
         if (pc.treeExpansionSetting == ProMConfig.TreeExpansionSetting.Heuristic) {
             HeuristicTreeConfiguration.Configurator<Place, PlaceState, PlaceNode, TreeNodeScore> htCfg = new HeuristicTreeConfiguration.Configurator<>();
             htCfg.heuristic(pc.treeHeuristic.getBuilder());
-            if (pc.enforceHeuristicThreshold)
-                htCfg.heuristicExpansion(isSupervisingEvents ? EventingDiscriminatingHeuristicTreeExpansion::new : DiscriminatingHeuristicTreeExpansion::new);
-            else
-                htCfg.heuristicExpansion(isSupervisingEvents ? EventingHeuristicTreeExpansion::new : HeuristicTreeExpansion::new);
+
+            //start change
+            if(pc.treeHeuristic == FrameworkBridge.BridgedHeuristics.GreedyETCPrecision.getBridge()) {
+                if(pc.updateGreedy) {
+                    htCfg.heuristicExpansion(UpdatingGreedyETCPrecisionTreeTraversalHeuristic::new);
+                } else {
+                    htCfg.heuristicExpansion(HeuristicTreeExpansion::new);
+                }
+            }else {
+                if (pc.enforceHeuristicThreshold)
+                    htCfg.heuristicExpansion(isSupervisingEvents ? EventingDiscriminatingHeuristicTreeExpansion::new : DiscriminatingHeuristicTreeExpansion::new);
+                else
+                    htCfg.heuristicExpansion(isSupervisingEvents ? EventingHeuristicTreeExpansion::new : HeuristicTreeExpansion::new);
+            }
+            //end change
+
             htCfg.tree(isSupervisingEvents ? EventingEnumeratingTree::new : EnumeratingTree::new);
             htCfg.childGenerationLogic(new MonotonousPlaceGenerationLogic.Builder());
             etCfg = htCfg;
@@ -161,6 +189,22 @@ public class ConfigurationController extends AbstractStageController {
                 }
                 if (pc.enforceHeuristicThreshold)
                     globalComponentSystem().provide(ParameterRequirements.TREE_HEURISTIC_THRESHOLD.fulfilWithStatic(new TreeHeuristicThreshold(pc.heuristicThreshold, pc.heuristicThresholdRelation)));
+                //begin addition
+                if (pc.useETCPrecisionBasedComposer) {
+                    globalComponentSystem().provide(ParameterRequirements.RHO_ETCPRECISION_THRESHOLD.fulfilWithStatic(new RhoETCPrecisionThreshold(pc.rho)));
+                    globalComponentSystem().provide(ParameterRequirements.GAMMA_ETCPRECISIONGAIN_THRESHOLD.fulfilWithStatic(new GammaETCPrecisionGainThreshold(pc.gamma)));
+                    globalComponentSystem().provide(ParameterRequirements.FLAG_PREMATUREABORT.fulfilWithStatic(new FlagPrematureAbort(pc.prematureAbort)));
+                    globalComponentSystem().provide(ParameterRequirements.FLAG_ETCPRECISIONCUTOFF.fulfilWithStatic(new FlagETCPrecisionCutOff(pc.cutOff)));
+                }
+                if(pc.treeExpansionSetting == ProMConfig.TreeExpansionSetting.Heuristic &&
+                        (pc.treeHeuristic == FrameworkBridge.BridgedHeuristics.AvgFirstOccIndexDelta.getBridge()
+                                || pc.treeHeuristic == FrameworkBridge.BridgedHeuristics.GreedyETCPrecision.getBridge()
+                                || pc.treeHeuristic  == FrameworkBridge.BridgedHeuristics.DirectlyFollows.getBridge()
+                                || pc.treeHeuristic  == FrameworkBridge.BridgedHeuristics.EventuallyFollows.getBridge())
+                )
+                    globalComponentSystem().provide(ParameterRequirements.ALPHA_TREETRAVERSALHEURISTIC.fulfilWithStatic((new AlphaTreeTraversalHeuristic(pc.alpha))));
+
+                //end addition
 
             }
         };

@@ -31,6 +31,24 @@ import static org.processmining.specpp.prom.mvc.swing.SwingFactory.resizeComboBo
 public class ConfigurationPanel extends AbstractStagePanel<ConfigurationController> {
 
 
+    //start additions
+
+    private final JCheckBox checkBoxUpdatingGreedyETC;
+
+    private final JCheckBox checkBoxCutOff;
+
+    private final JCheckBox checkBoxPrematureAbort;
+
+    private final JCheckBox checkBoxETCPrecisionBasedComposer;
+
+    private final TextBasedInputField<Double> rhoETCPrecisionTreshold;
+
+    private final TextBasedInputField<Double> gammaETCPrecisionGainTreshold;
+
+    private final TextBasedInputField<Double> alphaTreeTraversalHeuristics;
+
+    //end additions
+
     private final JComboBox<Preset> presetComboBox;
     private final JComboBox<ProMConfig.SupervisionSetting> supervisionComboBox;
     private final JCheckBox trackCandidateTreeCheckBox;
@@ -47,6 +65,10 @@ public class ConfigurationPanel extends AbstractStagePanel<ConfigurationControll
     private final JTextField steepnessField;
     private final JTextField depthField;
     private final LabeledComboBox<FrameworkBridge.AnnotatedTreeHeuristic> bridgedHeuristicsLabeledComboBox;
+
+
+
+
     private final LabeledComboBox<FrameworkBridge.AnnotatedEvaluator> deltaAdaptationLabeledComboBox;
     private static final Predicate<JTextField> zeroOneDoublePredicate = input -> {
         try {
@@ -167,6 +189,22 @@ public class ConfigurationPanel extends AbstractStagePanel<ConfigurationControll
         bridgedHeuristicsLabeledComboBox.setVisible(false);
         bridgedHeuristicsLabeledComboBox.add(SwingFactory.help(null, html("Place Interestingness - based on eventually follows relation of activities (see <a href=\"https://dx.doi.org/10.1007/978-3-030-66498-5_25\">Improving the State-Space Traversal of the eST-Miner by Exploiting Underlying Log Structures</a>)<br>BFS Emulation - equals depth(place)<br>DFS Emulation - equals -depth(place)")));
         proposal.append(bridgedHeuristicsLabeledComboBox);
+
+        //start alphaTreeTraversalHeuristic
+        alphaTreeTraversalHeuristics = SwingFactory.textBasedInputField("alpha", zeroOneDoubleFunc, 10);
+        alphaTreeTraversalHeuristics.setText("1.0");
+        alphaTreeTraversalHeuristics.setToolTipText("TreeTraversalHeuristic-Parameter in [0,1].");
+        alphaTreeTraversalHeuristics.setVisible(false);
+        proposal.append(alphaTreeTraversalHeuristics);
+        //end alphaTreeTraversalHeuristic
+
+        //start updatingGreedyTreeHeuristic
+        checkBoxUpdatingGreedyETC = SwingFactory.labeledCheckBox("update scores");
+        checkBoxUpdatingGreedyETC.setVisible(false);
+        checkBoxUpdatingGreedyETC.setToolTipText("Whether to update the place scores in the priority queue when new places are added to or removed from (gamma>0) the intermediate model");
+        proposal.append(checkBoxUpdatingGreedyETC);
+        //end updatingGreedyTreeHeuristic
+
         enforceHeuristicScoreThresholdCheckBox = SwingFactory.labeledCheckBox("enforce heuristic score threshold");
         enforceHeuristicScoreThresholdCheckBox.addActionListener(e -> updatedProposalSettings());
         enforceHeuristicScoreThresholdCheckBox.setVisible(false);
@@ -239,6 +277,35 @@ public class ConfigurationPanel extends AbstractStagePanel<ConfigurationControll
         ciprVariantCheckboxedComboBox.getComboBox()
                                      .setRenderer(createTooltippedListCellRenderer(ImmutableMap.of(ProMConfig.CIPRVariant.ReplayBased, "Uses subregion implicitness on the markings obtained from replay.", ProMConfig.CIPRVariant.LPBased, "Uses lp optimization based structural implicitness.")));
         composition.append(ciprVariantCheckboxedComboBox);
+
+        //start ETC-based Composer
+        checkBoxETCPrecisionBasedComposer = SwingFactory.labeledCheckBox("ETC-based Composer", false);
+        checkBoxETCPrecisionBasedComposer.addItemListener(e -> updatedCompositionSettings());
+        checkBoxETCPrecisionBasedComposer.addActionListener(e -> ciprVariantCheckboxedComboBox.getCheckBox().setSelected(false));
+        ciprVariantCheckboxedComboBox.getCheckBox().addActionListener(e -> checkBoxETCPrecisionBasedComposer.setSelected(false));
+        rhoETCPrecisionTreshold = SwingFactory.textBasedInputField("rho", zeroOneDoubleFunc, 10);
+        rhoETCPrecisionTreshold.setText("1.0");
+        rhoETCPrecisionTreshold.setToolTipText("ETC-Precision Threshold rho in [0,1].");
+        rhoETCPrecisionTreshold.setVisible(false);
+        gammaETCPrecisionGainTreshold = SwingFactory.textBasedInputField("gamma", zeroOneDoubleFunc, 10);
+        gammaETCPrecisionGainTreshold.setText("1.0");
+        gammaETCPrecisionGainTreshold.setToolTipText("Precision Threshold gamma in [0,1].");
+        gammaETCPrecisionGainTreshold.setVisible(false);
+        checkBoxPrematureAbort = SwingFactory.labeledCheckBox("Prematurely abort?", true);
+        checkBoxPrematureAbort.setToolTipText("Prematurely abort the discovery once the threshold rho in [0,1] is reached");
+        checkBoxPrematureAbort.setVisible(false);
+        checkBoxCutOff = SwingFactory.labeledCheckBox("Cut off Subtrees?", false);
+        checkBoxCutOff.setToolTipText("Enable cutting of subtrees if place is (currently) uninteresting according to rho in [0,1]");
+        checkBoxCutOff.setVisible(false);
+
+        composition.append(checkBoxETCPrecisionBasedComposer);
+        composition.append(rhoETCPrecisionTreshold);
+        composition.append(gammaETCPrecisionGainTreshold);
+        composition.append(checkBoxPrematureAbort);
+        composition.append(checkBoxCutOff);
+        //end ETC-based Composer
+
+
         composition.completeWithWhitespace();
 
         // ** POST PROCESSING ** //
@@ -375,6 +442,16 @@ public class ConfigurationPanel extends AbstractStagePanel<ConfigurationControll
     }
 
     private void initializeFromProMConfig(ProMConfig pc) {
+        //start additions
+        checkBoxUpdatingGreedyETC.setSelected(pc.updateGreedy);
+        checkBoxCutOff.setSelected(pc.cutOff);
+        checkBoxPrematureAbort.setSelected(pc.prematureAbort);
+        alphaTreeTraversalHeuristics.setText(Double.toString(pc.alpha));
+        rhoETCPrecisionTreshold.setText(Double.toString(pc.rho));
+        gammaETCPrecisionGainTreshold.setText(Double.toString(pc.gamma));
+        checkBoxETCPrecisionBasedComposer.setSelected(pc.useETCPrecisionBasedComposer);
+        //end additions
+
         supervisionComboBox.setSelectedItem(pc.supervisionSetting);
         expansionStrategyComboBox.setSelectedItem(pc.treeExpansionSetting);
         respectWiringCheckBox.setSelected(pc.respectWiring);
@@ -431,6 +508,16 @@ public class ConfigurationPanel extends AbstractStagePanel<ConfigurationControll
 
     public ProMConfig collectConfig() {
         ProMConfig pc = new ProMConfig();
+
+        //start additions
+        pc.useETCPrecisionBasedComposer = checkBoxETCPrecisionBasedComposer.isSelected();
+        pc.prematureAbort = checkBoxPrematureAbort.isSelected();
+        pc.cutOff = checkBoxCutOff.isSelected();
+        pc.updateGreedy = checkBoxUpdatingGreedyETC.isSelected();
+        pc.rho = rhoETCPrecisionTreshold.getInput();
+        pc.gamma = gammaETCPrecisionGainTreshold.getInput();
+        pc.alpha = alphaTreeTraversalHeuristics.getInput();
+        //end additions
 
         pc.supervisionSetting = (ProMConfig.SupervisionSetting) supervisionComboBox.getSelectedItem();
         pc.logToFile = logToFileCheckBox.isSelected();
@@ -499,6 +586,12 @@ public class ConfigurationPanel extends AbstractStagePanel<ConfigurationControll
     }
 
     private void updatedCompositionSettings() {
+        //start additions
+        gammaETCPrecisionGainTreshold.setVisible(checkBoxETCPrecisionBasedComposer.isSelected());
+        rhoETCPrecisionTreshold.setVisible(checkBoxETCPrecisionBasedComposer.isSelected());
+        checkBoxCutOff.setVisible(checkBoxETCPrecisionBasedComposer.isSelected());
+        checkBoxPrematureAbort.setVisible(checkBoxETCPrecisionBasedComposer.isSelected());
+        //end additions
         initiallyWireSelfLoopsCheckBox.setVisible(compositionStrategyComboBox.getSelectedItem() == ProMConfig.CompositionStrategy.Uniwired || respectWiringCheckBox.isSelected());
         ciprVariantCheckboxedComboBox.getComboBox()
                                      .setVisible(ciprVariantCheckboxedComboBox.getCheckBox().isSelected());
@@ -528,6 +621,13 @@ public class ConfigurationPanel extends AbstractStagePanel<ConfigurationControll
         bridgedHeuristicsLabeledComboBox.setVisible(expansionStrategyComboBox.getSelectedItem() == ProMConfig.TreeExpansionSetting.Heuristic);
         enforceHeuristicScoreThresholdCheckBox.setVisible(expansionStrategyComboBox.getSelectedItem() == ProMConfig.TreeExpansionSetting.Heuristic);
         heuristicThresholdInput.setVisible(expansionStrategyComboBox.getSelectedItem() == ProMConfig.TreeExpansionSetting.Heuristic && enforceHeuristicScoreThresholdCheckBox.isSelected());
+        alphaTreeTraversalHeuristics.setVisible(expansionStrategyComboBox.getSelectedItem() == ProMConfig.TreeExpansionSetting.Heuristic &&
+                          (bridgedHeuristicsLabeledComboBox.getComboBox().getSelectedItem() == FrameworkBridge.BridgedHeuristics.AvgFirstOccIndexDelta.getBridge()
+                        || bridgedHeuristicsLabeledComboBox.getComboBox().getSelectedItem() == FrameworkBridge.BridgedHeuristics.GreedyETCPrecision.getBridge()
+                        || bridgedHeuristicsLabeledComboBox.getComboBox().getSelectedItem() == FrameworkBridge.BridgedHeuristics.DirectlyFollows.getBridge()
+                        || bridgedHeuristicsLabeledComboBox.getComboBox().getSelectedItem() == FrameworkBridge.BridgedHeuristics.EventuallyFollows.getBridge())
+        );
+        checkBoxUpdatingGreedyETC.setVisible(expansionStrategyComboBox.getSelectedItem() == ProMConfig.TreeExpansionSetting.Heuristic &&  bridgedHeuristicsLabeledComboBox.getComboBox().getSelectedItem() == FrameworkBridge.BridgedHeuristics.GreedyETCPrecision.getBridge());
         revalidate();
         updateReadinessState();
     }
@@ -569,6 +669,9 @@ public class ConfigurationPanel extends AbstractStagePanel<ConfigurationControll
         Lightweight(ProMConfig::getLightweight),
         TauDelta(ProMConfig::getTauDelta),
         Uniwired(ProMConfig::getUniwired),
+        UniwiredTreeTraversalHeuristics(ProMConfig::getUniwiredTreeTraversalHeuristic),
+        ETCBasedComposer(ProMConfig::getETCBasedComposer),
+        ETCBasedComposerTreeTraversalHeuristics(ProMConfig::getETCBasedComposerTreeTraversalHeuristic),
         Last(null),
         Loaded(null);
 

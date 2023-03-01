@@ -29,11 +29,26 @@ public class ProMConfig {
     int depth;
     Duration discoveryTimeLimit, totalTimeLimit;
 
+    //start additions
+    double rho, gamma, alpha;
+    boolean useETCPrecisionBasedComposer, updateGreedy, cutOff, prematureAbort;
+    //end additions
+
     public ProMConfig() {
     }
 
     public static ProMConfig getDefault() {
         ProMConfig pc = new ProMConfig();
+        //start additions
+        pc.gamma = 0.0;
+        pc.rho = 1.0;
+        pc.alpha = 1.0;
+        pc.useETCPrecisionBasedComposer = false;
+        pc.cutOff = false;
+        pc.updateGreedy = false;
+        pc.prematureAbort = true;
+
+        //end additions
         pc.supervisionSetting = SupervisionSetting.PerformanceAndEvents;
         pc.logToFile = true;
         pc.logHeuristics = false;
@@ -82,6 +97,36 @@ public class ProMConfig {
         pc.initiallyWireSelfLoops = true;
         pc.ciprVariant = CIPRVariant.None;
         pc.ppPipeline = ImmutableList.of(FrameworkBridge.BridgedPostProcessors.UniwiredSelfLoopAddition.getBridge(), FrameworkBridge.BridgedPostProcessors.LPBasedImplicitPlaceRemoval.getBridge(), FrameworkBridge.BridgedPostProcessors.ProMPetrinetConversion.getBridge());
+        return pc;
+    }
+
+    public static ProMConfig getUniwiredTreeTraversalHeuristic() {
+        ProMConfig pc = getDefault();
+        pc.ciprVariant = CIPRVariant.None;
+        pc.treeExpansionSetting = TreeExpansionSetting.Heuristic;
+        pc.treeHeuristic = FrameworkBridge.BridgedHeuristics.AvgFirstOccIndexDelta.getBridge();
+        pc.compositionStrategy = CompositionStrategy.Standard;
+        pc.respectWiring = true;
+        pc.initiallyWireSelfLoops = true;
+        pc.ppPipeline = ImmutableList.of(FrameworkBridge.BridgedPostProcessors.UniwiredSelfLoopAddition.getBridge(), FrameworkBridge.BridgedPostProcessors.LPBasedImplicitPlaceRemoval.getBridge(), FrameworkBridge.BridgedPostProcessors.ProMPetrinetConversion.getBridge());
+        return pc;
+    }
+    public static ProMConfig getETCBasedComposer() {
+        ProMConfig pc = getDefault();
+        pc.ciprVariant = CIPRVariant.None;
+        pc.treeExpansionSetting = TreeExpansionSetting.BFS;
+        pc.useETCPrecisionBasedComposer = true;
+        pc.ppPipeline = ImmutableList.of(FrameworkBridge.BridgedPostProcessors.SelfLoopPlacesMerging.getBridge(), FrameworkBridge.BridgedPostProcessors.LPBasedImplicitPlaceRemoval.getBridge(), FrameworkBridge.BridgedPostProcessors.ProMPetrinetConversion.getBridge());
+        return pc;
+    }
+
+    public static ProMConfig getETCBasedComposerTreeTraversalHeuristic() {
+        ProMConfig pc = getDefault();
+        pc.ciprVariant = CIPRVariant.None;
+        pc.treeExpansionSetting = TreeExpansionSetting.Heuristic;
+        pc.treeHeuristic = FrameworkBridge.BridgedHeuristics.AvgFirstOccIndexDelta.getBridge();
+        pc.useETCPrecisionBasedComposer = true;
+        pc.ppPipeline = ImmutableList.of(FrameworkBridge.BridgedPostProcessors.SelfLoopPlacesMerging.getBridge(), FrameworkBridge.BridgedPostProcessors.LPBasedImplicitPlaceRemoval.getBridge(), FrameworkBridge.BridgedPostProcessors.ProMPetrinetConversion.getBridge());
         return pc;
     }
 
