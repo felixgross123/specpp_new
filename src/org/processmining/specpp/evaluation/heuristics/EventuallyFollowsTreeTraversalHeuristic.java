@@ -1,5 +1,4 @@
 package org.processmining.specpp.evaluation.heuristics;
-
 import org.processmining.specpp.componenting.data.DataRequirements;
 import org.processmining.specpp.componenting.data.ParameterRequirements;
 import org.processmining.specpp.componenting.delegators.DelegatingDataSource;
@@ -20,8 +19,38 @@ import org.processmining.specpp.traits.ZeroOneBounded;
 
 import java.util.Comparator;
 
+/**
+ * Tree-Traversal Heuristic based on the eventually-follows relation between pairs of activities
+ */
 public class EventuallyFollowsTreeTraversalHeuristic implements HeuristicStrategy<PlaceNode, TreeNodeScore>, ZeroOneBounded, SubtreeMonotonicity.Decreasing {
 
+    /**
+     * Eventually-follows counts (indices according to Activity-Integer encoding)
+     */
+    protected int[][] eventuallyFollows;
+
+    /**
+     * Alpha
+     */
+    private final double alpha;
+
+    /**
+     * Maximal eventually-follows count
+     */
+    private final double maxEF;
+
+    /**
+     * Maximal size of candidate places
+     */
+    private final int maxSize;
+
+    /**
+     * Creates new EventuallyFollowsTreeTraversalHeuristic.
+     * @param eventuallyFollows Eventually-follows counts.
+     * @param alpha Alpha.
+     * @param maxEF Maximal eventually-follows count.
+     * @param maxSize Maximal size of candidate places.
+     */
     public EventuallyFollowsTreeTraversalHeuristic(int[][] eventuallyFollows, double alpha, double maxEF, int maxSize) {
         this.eventuallyFollows = eventuallyFollows;
         this.alpha = alpha;
@@ -29,19 +58,39 @@ public class EventuallyFollowsTreeTraversalHeuristic implements HeuristicStrateg
         this.maxSize = maxSize;
     }
 
+    /**
+     * Local Builder-Class
+     */
     public static class Builder extends ComponentSystemAwareBuilder<EventuallyFollowsTreeTraversalHeuristic> {
 
-
+        /**
+         * Log
+         */
         private final DelegatingDataSource<Log> rawLog = new DelegatingDataSource<>();
+
+        /**
+         * Activity-Integer encoding
+         */
         private final DelegatingDataSource<IntEncodings<Activity>> encAct = new DelegatingDataSource<>();
+
+        /**
+         * Alpha
+         */
         private final DelegatingDataSource<AlphaTreeTraversalHeuristic> alpha = new DelegatingDataSource<>();
 
+        /**
+         * States requirements to builds a new EventuallyFollowsTreeTraversalHeuristic
+         */
         public Builder() {
             globalComponentSystem().require(DataRequirements.RAW_LOG, rawLog)
                 .require(DataRequirements.ENC_ACT, encAct)
                 .require(ParameterRequirements.ALPHA_TREETRAVERSALHEURISTIC, alpha);
         }
 
+        /**
+         * Executed if requirements listed in Builder() are fulfilled
+         * @return EventuallyFollowsTreeTraversalHeuristic.
+         */
         @Override
         protected EventuallyFollowsTreeTraversalHeuristic buildIfFullySatisfied() {
             Log log = rawLog.getData();
@@ -57,6 +106,7 @@ public class EventuallyFollowsTreeTraversalHeuristic implements HeuristicStrateg
                 ef[i] = new int[postSize];
             }
 
+            //calculate eventually-follows counts
             for (IndexedVariant indexedVariant : log) {
                 Variant variant = indexedVariant.getVariant();
                 double f = frequencies.get(indexedVariant.getIndex());
@@ -76,7 +126,7 @@ public class EventuallyFollowsTreeTraversalHeuristic implements HeuristicStrateg
             }
 
 
-            //search for max EF value
+            //calc max eventually-follows count
             double maxEF = 0;
 
             for (int[] rows : ef) {
@@ -87,17 +137,19 @@ public class EventuallyFollowsTreeTraversalHeuristic implements HeuristicStrateg
                 }
             }
 
+            //calc maxSize
             int maxSize = encAct.getData().getPresetEncoding().size() + encAct.getData().getPostsetEncoding().size();
 
             return new EventuallyFollowsTreeTraversalHeuristic(ef, alpha.getData().getAlpha(), maxEF, maxSize);
         }
     }
 
-    protected int[][] eventuallyFollows;
-    private final double alpha;
-    private final double maxEF;
-    private final int maxSize;
 
+    /**
+     * Computes the heuristic-score of a candidate place.
+     * @param node Candidate place.
+     * @return Heuristic Score.
+     */
     @Override
     public TreeNodeScore computeHeuristic(PlaceNode node) {
         double sum = node.getPlace().preset()
@@ -109,6 +161,10 @@ public class EventuallyFollowsTreeTraversalHeuristic implements HeuristicStrateg
         return new TreeNodeScore(score);
     }
 
+    /**
+     * Returns a comparator of the EventuallyFollowsTreeTraversalHeuristic
+     * @return Comparator.
+     */
     @Override
     public Comparator<TreeNodeScore> heuristicValuesComparator() {
         return Comparator.reverseOrder();

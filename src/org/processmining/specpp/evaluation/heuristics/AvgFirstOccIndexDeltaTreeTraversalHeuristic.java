@@ -22,14 +22,45 @@ import org.processmining.specpp.traits.ZeroOneBounded;
 
 import java.util.*;
 
+/**
+ * Tree-Traversal Heuristic based on the average first occurrence index activities
+ */
 public class AvgFirstOccIndexDeltaTreeTraversalHeuristic implements HeuristicStrategy<PlaceNode, TreeNodeScore>, ZeroOneBounded, SubtreeMonotonicity.Decreasing {
 
+    /**
+     * Mapping: Activity -> AverageFirstOccurrenceIndex
+     */
     private final Map<Activity, Double> activityToMeanFirstOccurrenceIndex;
+
+    /**
+     * Mapping between activities and transitions (and vice versa)
+     */
     private final BidiMap<Activity, Transition> actTransMapping;
+
+    /**
+     * Alpha
+     */
     private final double alpha;
+
+    /**
+     * Maximal averageFirstOccurrenceIndex-Delta between two activities
+     */
     private final double maxDelta;
+
+    /**
+     * Maximal size of candidate places
+     */
     private final int maxSize;
 
+
+    /**
+     * Creates new AvgFirstOccIndexDeltaTreeTraversalHeuristic.
+     * @param activityToMeanFirstOccurrenceIndex Mapping between activities to their averageFirstOccurrenceIndex.
+     * @param actTransMapping Mapping between activities and transitions (and vice versa).
+     * @param alpha Alpha.
+     * @param maxDelta Maximal averageFirstOccurrenceIndex-Delta.
+     * @param maxSize Maximal size of candidate places.
+     */
     public AvgFirstOccIndexDeltaTreeTraversalHeuristic(Map<Activity, Double> activityToMeanFirstOccurrenceIndex, BidiMap<Activity, Transition> actTransMapping, double alpha, double maxDelta, int maxSize) {
         this.activityToMeanFirstOccurrenceIndex = activityToMeanFirstOccurrenceIndex;
         this.actTransMapping = actTransMapping;
@@ -38,25 +69,51 @@ public class AvgFirstOccIndexDeltaTreeTraversalHeuristic implements HeuristicStr
         this.maxSize = maxSize;
     }
 
+    /**
+     * Local Builder Class
+     */
     public static class Builder extends ComponentSystemAwareBuilder<AvgFirstOccIndexDeltaTreeTraversalHeuristic> {
 
+        /**
+         * Log
+         */
         private final DelegatingDataSource<Log> rawLog = new DelegatingDataSource<>();
+
+        /**
+         * Mapping between activities and transitions (and vice versa)
+         */
         private final DelegatingDataSource<BidiMap<Activity, Transition>> actTransMapping = new DelegatingDataSource<>();
+
+        /**
+         * Activity-Integer encoding
+         */
         private final DelegatingDataSource<IntEncodings<Activity>> encAct = new DelegatingDataSource<>();
+
+        /**
+         * Alpha
+         */
         private final DelegatingDataSource<AlphaTreeTraversalHeuristic> alpha = new DelegatingDataSource<>();
 
 
+        /**
+         * States requirements to builds a new AverageFirstOccurrenceIndexDeltaTreeTraversalHeuristic
+         */
         public Builder() {
             globalComponentSystem().require(DataRequirements.RAW_LOG, rawLog).require(DataRequirements.ACT_TRANS_MAPPING, actTransMapping).require(DataRequirements.ENC_ACT, encAct)
                     .require(ParameterRequirements.ALPHA_TREETRAVERSALHEURISTIC, alpha);
         }
 
+        /**
+         * Executed if requirements listed in Builder() are fulfilled
+         * @return AverageFirstOccurrenceIndexDeltaTreeTraversalHeuristic.
+         */
         @Override
         protected AvgFirstOccIndexDeltaTreeTraversalHeuristic buildIfFullySatisfied() {
             Log log = rawLog.getData();
             Map<Activity, Double> activityToMeanFirstOccurrenceIndex = new HashMap<>();
             Map<Activity, Integer> activityToFreqSum = new HashMap<>();
 
+            //calc averageFirstOccIndices
             for (IndexedVariant indexedVariant : log) {
 
                 Set<Activity> seen = new HashSet<>();
@@ -82,6 +139,7 @@ public class AvgFirstOccIndexDeltaTreeTraversalHeuristic implements HeuristicStr
                 }
             }
 
+            //calc maxDelta and maxSize
             double maxDelta = activityToMeanFirstOccurrenceIndex.get(Factory.ARTIFICIAL_END);
             int maxSize = encAct.getData().getPresetEncoding().size() + encAct.getData().getPostsetEncoding().size();
 
@@ -90,6 +148,11 @@ public class AvgFirstOccIndexDeltaTreeTraversalHeuristic implements HeuristicStr
     }
 
 
+    /**
+     * Computes the heuristic-score of a candidate place.
+     * @param node Candidate place.
+     * @return Heuristic Score.
+     */
     @Override
     public TreeNodeScore computeHeuristic(PlaceNode node) {
         Place p = node.getPlace();
@@ -113,6 +176,10 @@ public class AvgFirstOccIndexDeltaTreeTraversalHeuristic implements HeuristicStr
         return new TreeNodeScore(score);
     }
 
+    /**
+     * Returns a comparator of the AverageFirstOccurrenceIndexDelta
+     * @return Comparator.
+     */
     @Override
     public Comparator<TreeNodeScore> heuristicValuesComparator() {
         return Comparator.naturalOrder();

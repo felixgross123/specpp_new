@@ -23,46 +23,89 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Tree-Traversal Heuristic greedily expanding towards places that possibly constrain precision the most
+ */
 public class GreedyETCPrecisionTreeTraversalHeuristic extends AbstractBaseClass implements HeuristicStrategy<PlaceNode, TreeNodeScore>, ZeroOneBounded, SubtreeMonotonicity.Decreasing {
 
+    /**
+     * Mapping between activities and transitions (and vice versa)
+     */
     private final BidiMap<Activity, Transition> actTransMapping;
+
+    /**
+     * Activity Mapping activityToEscapingEdges (derived from ETC-based Composer)
+     */
     private final DelegatingDataSource<Map<Activity, Integer>> delegatingDataSourceE = new DelegatingDataSource<>(HashMap::new);
+
+    /**
+     * Activity Mapping activityToAllowed (derived from ETC-based Composer)
+     */
     private final DelegatingDataSource<Map<Activity, Integer>> delegatingDataSourceA = new DelegatingDataSource<>(HashMap::new);
 
+    /**
+     * Alpha
+     */
     private final double alpha;
 
+    /**
+     * Maximal size of candidate places
+     */
     private final int maxSize;
 
-
+    /**
+     * Creates a new GreedyETCPrecisionTreeTraversalHeuristic.
+     * @param actTransMapping Mapping between activities and transitions (and vice versa).
+     * @param maxSize Maximal size of candidate places.
+     * @param alpha Alpha.
+     */
     public GreedyETCPrecisionTreeTraversalHeuristic(BidiMap<Activity, Transition> actTransMapping, int maxSize, double alpha) {
         this.actTransMapping = actTransMapping;
         this.alpha = alpha;
-
         this.maxSize = maxSize;
 
-
-
+        //hack: retrieve activity mappings against the "flow" of the PEC-Cycle
         globalComponentSystem()
                 .provide(DataRequirements.dataSource("activitiesToEscapingEdges_GreedyETC", JavaTypingUtils.castClass(DelegatingDataSource.class)).fulfilWithStatic(delegatingDataSourceE))
                 .provide(DataRequirements.dataSource("activitiesToAllowed_GreedyETC", JavaTypingUtils.castClass(DelegatingDataSource.class)).fulfilWithStatic(delegatingDataSourceA));
     }
 
+    /**
+     * Called initially
+     */
     @Override
     protected void initSelf() {
 
     }
 
+    /**
+     * Local builder-class
+     */
     public static class Builder extends ComponentSystemAwareBuilder<GreedyETCPrecisionTreeTraversalHeuristic> {
 
-
-
+        /**
+         * Log
+         */
         final DelegatingDataSource<Log> rawLog = new DelegatingDataSource<>();
+
+        /**
+         * Mapping between activities and transitions (and vice versa)
+         */
         private final DelegatingDataSource<BidiMap<Activity, Transition>> actTransMapping = new DelegatingDataSource<>();
 
+        /**
+         * Alpha
+         */
         private final DelegatingDataSource<AlphaTreeTraversalHeuristic> alpha = new DelegatingDataSource<>();
 
+        /**
+         * Activity-integer encoding
+         */
         private final DelegatingDataSource<IntEncodings<Activity>> encAct = new DelegatingDataSource<>();
 
+        /**
+         * States requirements to builds a new GreedyETCPrecisionTreeTraversalHeuristic
+         */
         public Builder() {
             globalComponentSystem().require(DataRequirements.RAW_LOG, rawLog)
                 .require(DataRequirements.ACT_TRANS_MAPPING, actTransMapping)
@@ -70,6 +113,10 @@ public class GreedyETCPrecisionTreeTraversalHeuristic extends AbstractBaseClass 
                 .require(ParameterRequirements.ALPHA_TREETRAVERSALHEURISTIC, alpha);
         }
 
+        /**
+         * Executed if requirements listed in Builder() are fulfilled
+         * @return GreedyETCPrecisionTreeTraversalHeuristic.
+         */
         @Override
         protected GreedyETCPrecisionTreeTraversalHeuristic buildIfFullySatisfied() {
             int maxSize = encAct.getData().getPresetEncoding().size() + encAct.getData().getPostsetEncoding().size();
@@ -77,7 +124,11 @@ public class GreedyETCPrecisionTreeTraversalHeuristic extends AbstractBaseClass 
         }
     }
 
-
+    /**
+     * Computes the heuristic-score of a candidate place.
+     * @param node Candidate place.
+     * @return Heuristic Score.
+     */
     @Override
     public TreeNodeScore computeHeuristic(PlaceNode node) {
         Place p = node.getPlace();
@@ -110,6 +161,10 @@ public class GreedyETCPrecisionTreeTraversalHeuristic extends AbstractBaseClass 
         }
     }
 
+    /**
+     * Returns a comparator of the EventuallyFollowsTreeTraversalHeuristic
+     * @return Comparator.
+     */
     @Override
     public Comparator<TreeNodeScore> heuristicValuesComparator() {
         return Comparator.reverseOrder();

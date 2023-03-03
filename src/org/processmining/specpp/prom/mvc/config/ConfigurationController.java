@@ -27,7 +27,7 @@ import org.processmining.specpp.datastructures.tree.nodegen.PlaceNode;
 import org.processmining.specpp.datastructures.tree.nodegen.PlaceState;
 import org.processmining.specpp.evaluation.heuristics.DirectlyFollowsHeuristic;
 import org.processmining.specpp.evaluation.heuristics.TreeHeuristicThreshold;
-import org.processmining.specpp.evaluation.heuristics.UpdatingGreedyETCPrecisionTreeTraversalHeuristic;
+import org.processmining.specpp.datastructures.tree.heuristic.UpdatingGreedyETCPrecisionTreeTraversalHeuristic;
 import org.processmining.specpp.evaluation.implicitness.LPBasedImplicitnessCalculator;
 import org.processmining.specpp.evaluation.markings.LogHistoryMaker;
 import org.processmining.specpp.prom.alg.FrameworkBridge;

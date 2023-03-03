@@ -3,9 +3,7 @@ package org.processmining.specpp.composition.composers;
 import org.apache.commons.collections4.BidiMap;
 import org.apache.commons.collections4.MapIterator;
 import org.processmining.specpp.base.AdvancedComposition;
-import org.processmining.specpp.base.ConstrainingComposer;
 import org.processmining.specpp.base.impls.AbstractComposer;
-import org.processmining.specpp.base.impls.CandidateConstraint;
 import org.processmining.specpp.componenting.data.DataRequirements;
 import org.processmining.specpp.componenting.data.DataSource;
 import org.processmining.specpp.componenting.data.ParameterRequirements;
@@ -34,7 +32,6 @@ import org.processmining.specpp.datastructures.transitionSystems.PAState;
 import org.processmining.specpp.datastructures.transitionSystems.PrefixAutomaton;
 import org.processmining.specpp.datastructures.vectorization.VariantMarkingHistories;
 import org.processmining.specpp.supervision.EventSupervision;
-import org.processmining.specpp.supervision.piping.Observable;
 import org.processmining.specpp.supervision.piping.PipeWorks;
 import org.processmining.specpp.util.JavaTypingUtils;
 
@@ -45,20 +42,71 @@ import java.util.*;
  * ETC-Precision based Composer (for further details refer to paper)
  * @param <I> Type of Composition
  */
-public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> extends AbstractComposer<Place, I, CollectionOfPlaces> implements ConstrainingComposer<Place, I, CollectionOfPlaces, CandidateConstraint<Place>> {
+public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> extends AbstractComposer<Place, I, CollectionOfPlaces> {
 
+    /**
+     * Log
+     */
     private final DelegatingDataSource<Log> logSource = new DelegatingDataSource<>();
-    private final DelegatingDataSource<BidiMap<Activity, Transition>> actTransMapping = new DelegatingDataSource<>();
-    private final DelegatingEvaluator<Place, VariantMarkingHistories> markingHistoriesEvaluator = new DelegatingEvaluator<>();
-    private final DelegatingDataSource<RhoETCPrecisionThreshold> rho = new DelegatingDataSource<>();
-    private final DelegatingDataSource<GammaETCPrecisionGainThreshold> gamma = new DelegatingDataSource<>();
-    private final DelegatingDataSource<FlagPrematureAbort> prematureAbort = new DelegatingDataSource<>();
+
+    /**
+     * Prefix Automaton of the log
+     */
     private final PrefixAutomaton prefixAutomaton = new PrefixAutomaton(new PAState());
+
+    /**
+     * Mapping between activities and transitions (and vice versa)
+     */
+    private final DelegatingDataSource<BidiMap<Activity, Transition>> actTransMapping = new DelegatingDataSource<>();
+
+    /**
+     * Evaluates the marking histories of places on the log
+     */
+    private final DelegatingEvaluator<Place, VariantMarkingHistories> markingHistoriesEvaluator = new DelegatingEvaluator<>();
+
+    /**
+     * Precision-threshold rho
+     * Prematurely abort the search once the (approximate) ETC-precision of the intermediate result reaches rho
+     */
+    private final DelegatingDataSource<RhoETCPrecisionThreshold> rho = new DelegatingDataSource<>();
+
+    /**
+     * Precision-gain threshold gamma (used to determine when to add/discard or keep/revoke places)
+     * Add places that increase the precision of the intermediate model by more than gamma, otherwise discard.
+     * Keep places whose removal would decrease the precision of the intermediate model by more than gamma.
+     */
+    private final DelegatingDataSource<GammaETCPrecisionGainThreshold> gamma = new DelegatingDataSource<>();
+
+    /**
+     * Flag indicating whether to prematurely abort the search once the ETC-precision threshold rho is reached.
+     * True -> possibly prematurely abort the search
+     * False -> no pemature abort
+     */
+    private final DelegatingDataSource<FlagPrematureAbort> prematureAbort = new DelegatingDataSource<>();
+
+    /**
+     * Mapping: activity -> its prerequisite places
+     */
     private final Map<Activity, Set<Place>> activityToIngoingPlaces = new HashMap<>();
+
+    /**
+     * Mapping: activity -> number of escaping edges its allowance results in when replaying the log
+     */
     private final Map<Activity, Integer> activityToEscapingEdges = new HashMap<>();
+
+    /**
+     * Mapping: activity -> number of allowances when replaying the log
+     */
     private final Map<Activity, Integer> activityToAllowed = new HashMap<>();
+
+    /**
+     * Pipe to put in "composition" events (accept/reject/revoke), received e.g. by the UpdatingGreedyETCPrecisionTreeTraversalHeuristic
+     */
     private final EventSupervision<CandidateCompositionEvent<Place>> compositionEventSupervision = PipeWorks.eventSupervision();
-    private final EventSupervision<CandidateConstraint<Place>> constraintEvents = PipeWorks.eventSupervision();
+
+    /**
+     * Store the precision of the current intermediate result
+     */
     private double currETCPrecision;
     private boolean newAddition = false;
 
@@ -87,13 +135,10 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
                                .require(EvaluationRequirements.PLACE_MARKING_HISTORY, markingHistoriesEvaluator)
                                .require(ParameterRequirements.RHO_ETCPRECISION_THRESHOLD, rho)
                                .require(ParameterRequirements.GAMMA_ETCPRECISIONGAIN_THRESHOLD, gamma)
-                               .require(ParameterRequirements.FLAG_PREMATUREABORT, prematureAbort)
-                               .provide(SupervisionRequirements.observable("composer.constraints.ETCCutOff", getPublishedConstraintClass(), getConstraintPublisher()));
+                               .require(ParameterRequirements.FLAG_PREMATUREABORT, prematureAbort);
         localComponentSystem().provide(SupervisionRequirements.observable("composer.events", JavaTypingUtils.castClass(CandidateCompositionEvent.class), compositionEventSupervision))
-                              .provide(SupervisionRequirements.observable("composer.constraints.ETCCutOff", getPublishedConstraintClass(), getConstraintPublisher()))
                 .provide(DataRequirements.dataSource("activitiesToAllowed", JavaTypingUtils.castClass(Map.class), StaticDataSource.of(activityToAllowed)))
                 .provide(DataRequirements.dataSource("activitiesToEscapingEdges", JavaTypingUtils.castClass(Map.class), StaticDataSource.of(activityToEscapingEdges)));
-        ;
     }
 
 
@@ -210,9 +255,9 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
     }
 
     /**
-     * check (tau=1) / approximate (tau<1) whether a place is implicit / insufficiently constrains precision
+     * check (tau=1) / approximate (tau<1) whether a place is implicit (gamma=0) / insufficiently constrains precision (gamma>0)
      * @param p place
-     * @return true, if p is implicit / insufficiently constrains precision. Otherwise, false.
+     * @return true, if p is implicit (gamma=0) / insufficiently constrains precision (gamma>0). Otherwise, false.
      */
     public boolean checkImplicitness(Place p) {
 
@@ -265,8 +310,8 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
     }
 
     /**
-     * Hook, executed when candidate is revoked (is implicit) -> Update mappings
-     * @param candidate the accepted candidate
+     * Executed when candidate is revoked (is implicit (rho=0), insufficiently constrains precision (rho>0)).
+     * @param candidate Revoked candidate.
      */
     @Override
     protected void acceptanceRevoked(Place candidate) {
@@ -276,8 +321,8 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
     }
 
     /**
-     * Hook, executed when candidate is accepted (is more precise) -> Update mappings
-     * @param candidate the accepted candidate
+     * Executed when candidate is accepted (its addition makes the intermediate model more precise (by gamma))-
+     * @param candidate Accepted candidate.
      */
     @Override
     protected void candidateAccepted(Place candidate) {
@@ -285,29 +330,26 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
         compositionEventSupervision.observe(new CandidateAccepted<>(candidate));
     }
 
+    /**
+     * Executed when a candidate is rejected (adding it would not make the intermediate model (sufficiently) more precise
+     * @param candidate Rejected candidate.
+     */
     @Override
     protected void candidateRejected(Place candidate) {
         compositionEventSupervision.observe(new CandidateRejected<>(candidate));
     }
 
-    public double calcPartETCPrecision(Place candidate) {
-        int sumAllowed = 0;
-        int sumEscaping = 0;
-        for(Transition t : candidate.postset()) {
-            Activity a = actTransMapping.getData().getKey(t);
-            sumAllowed += activityToAllowed.get(a);
-            sumEscaping += activityToEscapingEdges.get(a);
-        }
-        return 1.0 - ((double) sumEscaping /(double) sumAllowed);
-    }
-
+    /**
+     * Executed after the (premature) abort of the discovery
+     * Prints the (approximate) precision of the final model
+     */
     @Override
     public void candidatesAreExhausted() {
-        System.out.println("(Approximate) Precision: " + calcETCPrecision(activityToEscapingEdges, activityToAllowed));
+        //System.out.println("(Approximate) Precision: " + calcETCPrecision(activityToEscapingEdges, activityToAllowed));
     }
 
     /**
-     * Initialize the ETC-based Composer: Build-Prefix Automaton and Look-Up Tables
+     * Initialize the ETC-based composer: Builds prefix automaton and initial activity mappings.
      */
     @Override
     protected void initSelf() {
@@ -338,8 +380,8 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
     }
 
     /**
-     * Add a place test-wise
-     * @param p place
+     * Adds a place test-wise.
+     * @param p Place.
      */
     private void addToActivityPlacesMapping(Place p){
         for(Transition t : p.postset()) {
@@ -350,8 +392,8 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
     }
 
     /**
-     * Remove a place test-wise
-     * @param p place
+     * Removes a place test-wise.
+     * @param p Place.
      */
     private void removeFromActivityPlacesMapping(Place p){
         for(Transition t : p.postset()) {
@@ -363,7 +405,7 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
 
 
     /**
-     * Check whether search can be aborted prematurely
+     * Checks whether search can be aborted prematurely.
      * @return true, if search can be aborted. Otherwise, false.
      */
     @Override
@@ -377,7 +419,7 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
     }
 
     /**
-     * Check whether precision threshold rho has been met
+     * Checks whether precision threshold rho has been met
      * @return true, if threshold is reached. Otherwise, false.
      */
     public boolean checkPrecisionThreshold(double p) {
@@ -391,7 +433,7 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
     }
 
     /**
-     * Calculates the (approximate) ETC-precision based on the given Look-Up Tables
+     * Calculates the (approximate) ETC-precision based on the given activity mappings (including/excluding test-wise added/removed places)
      * @param activityToEscapingEdges Mapping from activities to #EscapingEdges
      * @param activityToAllowed Mapping from activities to #Allowed
      * @return (approximate) ETC-precision
@@ -413,7 +455,7 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
 
 
     /**
-     * evaluate (tau=1) / approximate (tau<1) the precision of an activity
+     * reevaluates (tau=1) / approximates (tau<1) the activity's mapping entries
      * @param a activity to evaluate
      * @return Integer-array of size two. [0]-#EscapingEdges a, [1]-#Allowed a
      */
@@ -476,16 +518,6 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
         return new int[]{escapingEdges, allowed};
     }
 
-
-    @Override
-    public Observable<CandidateConstraint<Place>> getConstraintPublisher() {
-        return constraintEvents;
-    }
-
-    @Override
-    public Class<CandidateConstraint<Place>> getPublishedConstraintClass() {
-        return JavaTypingUtils.castClass(CandidateConstraint.class);
-    }
 
 
 

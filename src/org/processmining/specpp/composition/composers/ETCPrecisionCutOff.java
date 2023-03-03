@@ -25,29 +25,65 @@ import java.util.Map;
 
 import static org.processmining.specpp.componenting.data.DataRequirements.dataSource;
 
+/**
+ * Composer used to prune the candidate tree based on precision when using the ETC-based composer (as terminal composer).
+ * @param <I> Type of Composition
+ * @param <R> Type of Result
+ */
 public class ETCPrecisionCutOff<I extends CompositionComponent<Place>, R extends Result> extends FilteringComposer<Place, I, R> implements ConstrainingComposer<Place, I, R, CandidateConstraint<Place>> {
 
+    /**
+     * Precision-threshold rho used to determine when to cut off subtrees
+     */
     protected final DelegatingDataSource<RhoETCPrecisionThreshold> rho = new DelegatingDataSource<>();
+
+    /**
+     * Pipe to put in "constraining" events, received by candidate-proposition
+     */
     protected final EventSupervision<CandidateConstraint<Place>> constraintEvents = PipeWorks.eventSupervision();
+
+    /**
+     * Mapping between activities and transitions (and vice versa)
+     */
     private final DelegatingDataSource<BidiMap<Activity, Transition>> actTransMapping = new DelegatingDataSource<>();
+
+    /**
+     * Activity Mapping activityToAllowed (derived from ETC-based Composer)
+     */
     private final DelegatingDataSource<Map<Activity, Integer>> delActivitiesToAllowed = new DelegatingDataSource<>();
+
+    /**
+     * Activity Mapping activityToEscapingEdges (derived from ETC-based Composer)
+     */
     private final DelegatingDataSource<Map<Activity, Integer>> delActivitiesToEscapingEdges = new DelegatingDataSource<>();
 
+    /**
+     * Creates new (recursive) ETCPrecisionCutOff-composer.
+     * @param childComposer Next composer in chain.
+     */
     public ETCPrecisionCutOff(ComposerComponent<Place, I, R> childComposer) {
         super(childComposer);
         globalComponentSystem().require(ParameterRequirements.RHO_ETCPRECISION_THRESHOLD, rho)
-                                .require(DataRequirements.ACT_TRANS_MAPPING, actTransMapping)
-                        .provide(SupervisionRequirements.observable("composer.constraints.ETCCutOff", getPublishedConstraintClass(), getConstraintPublisher()));
+                .require(DataRequirements.ACT_TRANS_MAPPING, actTransMapping)
+                .provide(SupervisionRequirements.observable("composer.constraints.ETCCutOff", getPublishedConstraintClass(), getConstraintPublisher()));
         localComponentSystem().provide(SupervisionRequirements.observable("composer.constraints.ETCCutOff", getPublishedConstraintClass(), getConstraintPublisher()))
                 .require(dataSource("activitiesToAllowed", JavaTypingUtils.castClass(Map.class)), delActivitiesToAllowed)
                 .require(dataSource("activitiesToEscapingEdges", JavaTypingUtils.castClass(Map.class)), delActivitiesToEscapingEdges);
     }
 
+    /**
+     * Is executed at initialization.
+     */
     @Override
     protected void initSelf() {
 
     }
 
+    /**
+     * Deliberates the acceptance of a candidate place. Executes forward(place) to forward "place" to the next
+     * Composer in the chain. Executes gotFiltered(place) if "place" is discarded.
+     * @param place Candidate place.
+     */
     @Override
     public void accept(Place place) {
 
@@ -56,6 +92,7 @@ public class ETCPrecisionCutOff<I extends CompositionComponent<Place>, R extends
 
         if(activitiesToAllowed.size()>0 && activitiesToEscapingEdges.size()>0) {
 
+            //search for outgoing activity with highest activity-wise precision
             double maxFraction = Double.MIN_VALUE;
 
             for(Transition t : place.postset()) {
@@ -64,6 +101,7 @@ public class ETCPrecisionCutOff<I extends CompositionComponent<Place>, R extends
                 if(frac > maxFraction) maxFraction = frac;
             }
 
+            //check if maximum activity-wise precision is less than threshold rho
             if(maxFraction >= rho.getData().getRho()) {
                 constraintEvents.observe(new ETCPrecisionCutOffConstraint(place));
                 gotFiltered(place);
@@ -75,14 +113,26 @@ public class ETCPrecisionCutOff<I extends CompositionComponent<Place>, R extends
         }
     }
 
+    /**
+     * Is executed after a candidate place is discarded.
+     * @param place Candidate place.
+     */
     protected void gotFiltered(Place place) {
     }
 
+    /**
+     * Returns the publisher of the candidate constrain.
+     * @return Publisher.
+     */
     @Override
     public Observable<CandidateConstraint<Place>> getConstraintPublisher() {
         return constraintEvents;
     }
 
+    /**
+     * Returns the class of the publisher of the candidate constrain.
+     * @return Class.
+     */
     @Override
     public Class<CandidateConstraint<Place>> getPublishedConstraintClass() {
         return JavaTypingUtils.castClass(CandidateConstraint.class);

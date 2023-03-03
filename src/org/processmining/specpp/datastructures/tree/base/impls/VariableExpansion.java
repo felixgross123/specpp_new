@@ -15,7 +15,7 @@ public class VariableExpansion<N extends TreeNode & LocallyExpandable<N>> extend
     private final Supplier<N> peek, dequeue;
 
     public VariableExpansion() {
-        this(true);
+        this(false);
     }
 
     public VariableExpansion(boolean useStack) {

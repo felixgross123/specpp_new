@@ -19,13 +19,38 @@ import org.processmining.specpp.traits.ZeroOneBounded;
 
 import java.util.Comparator;
 
+/**
+ * Tree-Traversal Heuristic based on the directly-follows relation between pairs of activities
+ */
 public class DirectlyFollowsTreeTraversalHeuristic implements HeuristicStrategy<PlaceNode, TreeNodeScore>, ZeroOneBounded, SubtreeMonotonicity.Decreasing {
+
+    /**
+     * Directly-follows counts (indices according to Activity-Integer encoding)
+     */
     private final int[][] dfCounts;
 
+    /**
+     * Alpha
+     */
     private final double alpha;
+
+    /**
+     * Maximal directly-follows count
+     */
     private final int maxDF;
+
+    /**
+     * Maximal size of candidate places
+     */
     private final int maxSize;
 
+    /**
+     * Creates new DirectlyFollowsTreeTraversalHeuristic.
+     * @param dfCounts Directly-follows counts.
+     * @param alpha Alpha.
+     * @param maxDF Maximal directly-follows count.
+     * @param maxSize Maximal size of candidate places.
+     */
     public DirectlyFollowsTreeTraversalHeuristic(int[][] dfCounts, double alpha, int maxDF, int maxSize) {
         this.dfCounts = dfCounts;
         this.alpha = alpha;
@@ -33,27 +58,48 @@ public class DirectlyFollowsTreeTraversalHeuristic implements HeuristicStrategy<
         this.maxSize = maxSize;
     }
 
+    /**
+     * Local Builder-Class
+     */
     public static class Builder extends ComponentSystemAwareBuilder<DirectlyFollowsTreeTraversalHeuristic> {
 
 
+        /**
+         * Log
+         */
         private final DelegatingDataSource<Log> rawLog = new DelegatingDataSource<>();
+
+        /**
+         * Activity-Integer encoding
+         */
         private final DelegatingDataSource<IntEncodings<Activity>> encAct = new DelegatingDataSource<>();
+
+        /**
+         * Alpha
+         */
         private final DelegatingDataSource<AlphaTreeTraversalHeuristic> alpha = new DelegatingDataSource<>();
 
 
+        /**
+         * States requirements to builds a new DirectlyFollowsTreeTraversalHeuristic
+         */
         public Builder() {
             globalComponentSystem().require(DataRequirements.RAW_LOG, rawLog).require(DataRequirements.ENC_ACT, encAct).require(ParameterRequirements.ALPHA_TREETRAVERSALHEURISTIC, alpha);
         }
 
+        /**
+         * Executed if requirements listed in Builder() are fulfilled
+         * @return DirectlyFollowsTreeTraversalHeuristic.
+         */
         @Override
         protected DirectlyFollowsTreeTraversalHeuristic buildIfFullySatisfied() {
+
             Log log = rawLog.getData();
             IntEncodings<Activity> activityIntEncodings = encAct.getData();
             IntEncoding<Activity> presetEncoding = activityIntEncodings.getPresetEncoding();
             IntEncoding<Activity> postsetEncoding = activityIntEncodings.getPostsetEncoding();
             int preSize = presetEncoding.size();
             int postSize = postsetEncoding.size();
-
 
             int[][] counts = new int[preSize][postSize];
             for (int i = 0; i < counts.length; i++) {
@@ -62,6 +108,7 @@ public class DirectlyFollowsTreeTraversalHeuristic implements HeuristicStrategy<
 
             IntVector frequencies = log.getVariantFrequencies();
 
+            //calculate dfCounts
             for (IndexedVariant indexedVariant : log) {
                 Variant variant = indexedVariant.getVariant();
                 int f = frequencies.get(indexedVariant.getIndex());
@@ -89,13 +136,18 @@ public class DirectlyFollowsTreeTraversalHeuristic implements HeuristicStrategy<
                 }
             }
 
-
+            //calc maxSize
             int maxSize = encAct.getData().getPresetEncoding().size() + encAct.getData().getPostsetEncoding().size();
 
             return new DirectlyFollowsTreeTraversalHeuristic(counts, alpha.getData().getAlpha(), maxDF, maxSize);
         }
     }
 
+    /**
+     * Computes the heuristic-score of a candidate place.
+     * @param node Candidate place.
+     * @return Heuristic Score.
+     */
     @Override
     public TreeNodeScore computeHeuristic(PlaceNode node) {
         int sum = node.getPlace().preset()
@@ -108,6 +160,10 @@ public class DirectlyFollowsTreeTraversalHeuristic implements HeuristicStrategy<
         return new TreeNodeScore(score);
     }
 
+    /**
+     * Returns a comparator of the DirectlyFollowsTreeTraversalHeuristic
+     * @return Comparator.
+     */
     @Override
     public Comparator<TreeNodeScore> heuristicValuesComparator() {
         return Comparator.reverseOrder();
