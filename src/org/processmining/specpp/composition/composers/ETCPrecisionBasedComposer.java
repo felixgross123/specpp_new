@@ -108,6 +108,8 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
      * Store the precision of the current intermediate result
      */
     private double currETCPrecision;
+
+    private final Map<Place, VariantMarkingHistories> markingHistoriesCache = new HashMap<>();
     private boolean newAddition = false;
 
     /**
@@ -151,6 +153,9 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
     protected boolean deliberateAcceptance(Place candidate) {
 
         //eventSupervisor.observe(new DebugEvent("read me"));
+
+        //optimization cache marking histories
+        markingHistoriesCache.put(candidate, markingHistoriesEvaluator.eval(candidate));
 
         //System.out.println("Evaluating Place " + candidate);
         if (!checkPrecisionGain(candidate)) {
@@ -315,6 +320,8 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
      */
     @Override
     protected void acceptanceRevoked(Place candidate) {
+        //update markingHistoriesCache
+        markingHistoriesCache.remove(candidate);
         //update ActivityPlaceMapping
         removeFromActivityPlacesMapping(candidate);
         compositionEventSupervision.observe(new CandidateAcceptanceRevoked<>(candidate));
@@ -336,6 +343,8 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
      */
     @Override
     protected void candidateRejected(Place candidate) {
+        //update markingHistoriesCache
+        markingHistoriesCache.remove(candidate);
         compositionEventSupervision.observe(new CandidateRejected<>(candidate));
     }
 
@@ -471,7 +480,7 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
         // collect markingHistories
         LinkedList<VariantMarkingHistories> markingHistories = new LinkedList<>();
         for(Place p : prerequisites) {
-            markingHistories.add(markingHistoriesEvaluator.eval(p));
+            markingHistories.add(markingHistoriesCache.get(p));
         }
 
         //iterate log: variant by variant, activity by activity

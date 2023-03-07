@@ -406,7 +406,7 @@ public class Batching {
             TransEvClassMapping evClassMapping = EvalUtils.createTransEvClassMapping(evaluationLogData.getEventClassifier(), evaluationLogData.getEventClasses(), pn);
             Thread currentThread = Thread.currentThread();
             // attempting with this canceller
-            PNRepResult pnRepResult = EvalUtils.computeAlignmentBasedReplay(null, evaluationLogData, evClassMapping, pn, currentThread::isInterrupted, true);
+            PNRepResult pnRepResult = EvalUtils.computeAlignmentBasedReplay(null, evaluationLogData, evClassMapping, pn, currentThread::isInterrupted, false);
             if (Thread.interrupted()) throw new InterruptedException();
             double fraction = EvalUtils.derivePerfectlyFitting(evaluationLogData, pnRepResult);
             double fitness = EvalUtils.deriveAlignmentBasedFitness(pnRepResult);

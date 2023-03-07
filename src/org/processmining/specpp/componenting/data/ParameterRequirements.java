@@ -25,11 +25,6 @@ public class ParameterRequirements {
     public static final ParameterRequirement<AlphaTreeTraversalHeuristic> ALPHA_TREETRAVERSALHEURISTIC = parameters("alpha.parameters", AlphaTreeTraversalHeuristic.class);
 
     /**
-     * ETC-Precision CutOff
-     */
-    public static final ParameterRequirement<FlagETCPrecisionCutOff> FLAG_ETCPRECISIONCUTOFF = parameters("ETC_cutOff.parameters", FlagETCPrecisionCutOff.class);
-
-    /**
      * ETC-Precision PrematureAbort
      */
     public static final ParameterRequirement<FlagPrematureAbort> FLAG_PREMATUREABORT = parameters("ETC_prematureAbort.parameters", FlagPrematureAbort.class);

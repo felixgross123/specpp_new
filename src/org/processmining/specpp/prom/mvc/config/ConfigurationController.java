@@ -194,7 +194,6 @@ public class ConfigurationController extends AbstractStageController {
                     globalComponentSystem().provide(ParameterRequirements.RHO_ETCPRECISION_THRESHOLD.fulfilWithStatic(new RhoETCPrecisionThreshold(pc.rho)));
                     globalComponentSystem().provide(ParameterRequirements.GAMMA_ETCPRECISIONGAIN_THRESHOLD.fulfilWithStatic(new GammaETCPrecisionGainThreshold(pc.gamma)));
                     globalComponentSystem().provide(ParameterRequirements.FLAG_PREMATUREABORT.fulfilWithStatic(new FlagPrematureAbort(pc.prematureAbort)));
-                    globalComponentSystem().provide(ParameterRequirements.FLAG_ETCPRECISIONCUTOFF.fulfilWithStatic(new FlagETCPrecisionCutOff(pc.cutOff)));
                 }
                 if(pc.treeExpansionSetting == ProMConfig.TreeExpansionSetting.Heuristic &&
                         (pc.treeHeuristic == FrameworkBridge.BridgedHeuristics.AvgFirstOccIndexDelta.getBridge()
