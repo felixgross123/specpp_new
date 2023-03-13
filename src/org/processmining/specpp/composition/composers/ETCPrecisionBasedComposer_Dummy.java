@@ -56,6 +56,8 @@ public class ETCPrecisionBasedComposer_Dummy<I extends AdvancedComposition<Place
     private final Map<Activity, Set<Place>> activityToIngoingPlaces = new HashMap<>();
     private final Map<Activity, Integer> activityToEscapingEdges = new HashMap<>();
     private final Map<Activity, Integer> activityToAllowed = new HashMap<>();
+
+    private final Map<Place, VariantMarkingHistories> markingHistoriesCache = new HashMap<>();
     private final EventSupervision<CandidateCompositionEvent<Place>> compositionEventSupervision = PipeWorks.eventSupervision();
 
 
@@ -89,6 +91,8 @@ public class ETCPrecisionBasedComposer_Dummy<I extends AdvancedComposition<Place
      */
     @Override
     protected boolean deliberateAcceptance(Place candidate) {
+
+        markingHistoriesCache.put(candidate, markingHistoriesEvaluator.eval(candidate));
 
         BitEncodedSet<Transition> candidateOut = candidate.postset();
         Set<Activity> activitiesToRevealuate = new HashSet<>();
@@ -197,7 +201,7 @@ public class ETCPrecisionBasedComposer_Dummy<I extends AdvancedComposition<Place
         // collect markingHistories
         LinkedList<VariantMarkingHistories> markingHistories = new LinkedList<>();
         for(Place p : prerequisites) {
-            markingHistories.add(markingHistoriesEvaluator.eval(p));
+            markingHistories.add(markingHistoriesCache.get(p));
         }
 
         //iterate log: variant by variant, activity by activity

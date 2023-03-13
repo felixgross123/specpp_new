@@ -133,7 +133,6 @@ public class GreedyETCPrecisionTreeTraversalHeuristic extends AbstractBaseClass 
     public TreeNodeScore computeHeuristic(PlaceNode node) {
         Place p = node.getPlace();
         Map<Activity, Integer> activityToEscapingEdges = delegatingDataSourceE.getData();
-        Map<Activity, Integer> activityToAllowed = delegatingDataSourceA.getData();
 
         if(p.isHalfEmpty()) {
             return new TreeNodeScore(Double.MAX_VALUE);
@@ -148,13 +147,12 @@ public class GreedyETCPrecisionTreeTraversalHeuristic extends AbstractBaseClass 
                     sumEPostSet += activityToEscapingEdges.get(a);
                 }
 
-                int sumAPostSet = 0;
-                for(Transition t : node.getPlace().postset()) {
-                    Activity a = actTransMapping.getKey(t);
-                    sumAPostSet += activityToAllowed.get(a);
+                int sumE = 0;
+                for(Activity a : actTransMapping.keySet()) {
+                    sumE += activityToEscapingEdges.get(a);
                 }
 
-                double score = (alpha) * ((double) sumEPostSet / sumAPostSet) + (1-alpha) * (1 - (double) p.size() / maxSize);
+                double score = (alpha) * ((double) sumEPostSet / sumE) + (1-alpha) * (1 - ((double) p.size() / maxSize));
                 return new TreeNodeScore(score);
 
             }

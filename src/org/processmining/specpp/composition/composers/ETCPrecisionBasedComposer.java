@@ -109,7 +109,14 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
      */
     private double currETCPrecision;
 
+    /**
+     * Cache for the marking histories of the places in the intermediate model
+     */
     private final Map<Place, VariantMarkingHistories> markingHistoriesCache = new HashMap<>();
+
+    /**
+     * Flag, indicating if a new place has been added in the current iteration
+     */
     private boolean newAddition = false;
 
     /**
