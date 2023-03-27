@@ -244,7 +244,6 @@ public class ETCPrecisionBasedComposer_Dummy<I extends AdvancedComposition<Place
                 }
             }
         }
-        //System.out.println("EE(" + a +") = " + escapingEdges);
         return new int[]{escapingEdges, allowed};
     }
 

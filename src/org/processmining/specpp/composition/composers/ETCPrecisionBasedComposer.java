@@ -21,6 +21,7 @@ import org.processmining.specpp.config.parameters.RhoETCPrecisionThreshold;
 import org.processmining.specpp.config.parameters.GammaETCPrecisionGainThreshold;
 import org.processmining.specpp.config.parameters.FlagPrematureAbort;
 import org.processmining.specpp.datastructures.encoding.BitEncodedSet;
+import org.processmining.specpp.datastructures.encoding.BitMask;
 import org.processmining.specpp.datastructures.log.Activity;
 import org.processmining.specpp.datastructures.log.Log;
 import org.processmining.specpp.datastructures.log.impls.Factory;
@@ -164,18 +165,14 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
         //optimization cache marking histories
         markingHistoriesCache.put(candidate, markingHistoriesEvaluator.eval(candidate));
 
-        //System.out.println("Evaluating Place " + candidate);
         if (!checkPrecisionGain(candidate)) {
             // no decrease in EE(a) for any activity a that was reevaluated
 
-            //System.out.println("Place " + candidate + " not accepted (no increase in precision)");
-            //System.out.println("----------------");
             return false;
 
         } else {
 
             // candidate place makes the result more precise -> check for potentially implicit places
-            //System.out.println("Place " + candidate + " accepted");
 
             //collect potentially implcit places
             LinkedList<Place> potImpl = new LinkedList<>();
@@ -193,17 +190,12 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
             addToActivityPlacesMapping(candidate);
 
             for (Place pPotImpl : potImpl) {
-
-                //System.out.println("ImplicitnessCheck: " + pPotImpl);
                 if (checkImplicitness(pPotImpl)) {
-
                     revokeAcceptance(pPotImpl);
-                    //System.out.println(pPotImpl + " implicit --> remove");
                 }
             }
 
             removeFromActivityPlacesMapping(candidate);
-            //System.out.println("----------------");
 
             newAddition = true;
             return true;
@@ -361,7 +353,6 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
      */
     @Override
     public void candidatesAreExhausted() {
-        //System.out.println("(Approximate) Precision: " + calcETCPrecision(activityToEscapingEdges, activityToAllowed));
     }
 
     /**
@@ -439,12 +430,7 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
      * @return true, if threshold is reached. Otherwise, false.
      */
     public boolean checkPrecisionThreshold(double p) {
-        if(currETCPrecision >= p) {
-            System.out.println("PREMATURE ABORT precision threshold " + rho.get().getRho() + " reached");
-            return true;
-        } else {
-            return false;
-        }
+        return currETCPrecision >= p;
 
     }
 
@@ -530,10 +516,8 @@ public class ETCPrecisionBasedComposer<I extends AdvancedComposition<Place>> ext
                 }
             }
         }
-        //System.out.println("EE(" + a +") = " + escapingEdges);
         return new int[]{escapingEdges, allowed};
     }
-
 
 
 

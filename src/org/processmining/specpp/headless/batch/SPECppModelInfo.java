@@ -1,19 +1,30 @@
 package org.processmining.specpp.headless.batch;
 
+import org.processmining.models.graphbased.directed.DirectedGraph;
+import org.processmining.models.graphbased.directed.DirectedGraphEdge;
+import org.processmining.models.graphbased.directed.DirectedGraphNode;
+import org.processmining.models.graphbased.directed.petrinet.PetrinetEdge;
+import org.processmining.models.graphbased.directed.petrinet.PetrinetNode;
 import org.processmining.specpp.base.impls.SPECpp;
 import org.processmining.specpp.composition.BasePlaceComposition;
+import org.processmining.specpp.datastructures.graph.Edge;
+import org.processmining.specpp.datastructures.graph.Graph;
+import org.processmining.specpp.datastructures.graph.Vertex;
 import org.processmining.specpp.datastructures.petri.CollectionOfPlaces;
 import org.processmining.specpp.datastructures.petri.Place;
 import org.processmining.specpp.datastructures.petri.ProMPetrinetWrapper;
+import org.processmining.specpp.postprocessing.AddDanglingTransitionPostProcessing;
+
+import java.util.*;
 
 public class SPECppModelInfo extends BatchedExecutionResult {
 
-    public static final String[] COLUMN_NAMES = new String[]{"run identifier", "initial place count", "post processed place count", "post processed arc count", "post processed avg. out-degree", "post processed avg. in-degree"};
+    public static final String[] COLUMN_NAMES = new String[]{"run identifier", "initial place count", "post processed place count", "post processed arc count", "dangling Transitions", "subcomponents"};
     private final int initialPlaceCount;
     private final int postProcessedPlaceCount;
     private final int postProcessedArcsCount;
-    private final double postProcessedAvgOutDegree;
-    private final double postProcessedAvgInDegree;
+    private final int danglingTransitions;
+    private final int subcomponents;
 
     public SPECppModelInfo(String runIdentifier, SPECpp<Place, BasePlaceComposition, CollectionOfPlaces, ProMPetrinetWrapper> specpp) {
         super(runIdentifier, "SPECppModelInfo");
@@ -23,31 +34,20 @@ public class SPECppModelInfo extends BatchedExecutionResult {
                                                                                   .size() : -1;
         postProcessedArcsCount = specpp.getPostProcessedResult() != null ? specpp.getPostProcessedResult().getEdges().size(): -1;
 
-        double avgOutDegree = 0;
-        double avgInDegree = 0;
+        danglingTransitions = AddDanglingTransitionPostProcessing.danglingTransitions;
 
-        if(specpp.getPostProcessedResult() != null) {
-            for (org.processmining.models.graphbased.directed.petrinet.elements.Transition t : specpp.getPostProcessedResult().getTransitions()) {
-                avgOutDegree += specpp.getPostProcessedResult().getOutEdges(t).size();
-            }
-            avgOutDegree /= specpp.getPostProcessedResult().getTransitions().size();
 
-            for (org.processmining.models.graphbased.directed.petrinet.elements.Transition t : specpp.getPostProcessedResult().getTransitions()) {
-                avgInDegree += specpp.getPostProcessedResult().getInEdges(t).size();
-            }
-            avgInDegree /= specpp.getPostProcessedResult().getTransitions().size();
-        }
-        postProcessedAvgOutDegree = specpp.getPostProcessedResult() != null ? avgOutDegree : -1;
-        postProcessedAvgInDegree = specpp.getPostProcessedResult() != null ? avgInDegree : -1;
+        subcomponents = specpp.getPostProcessedResult() != null ? (getSubcomponents(specpp.getPostProcessedResult()) > 0 ? getSubcomponents(specpp.getPostProcessedResult())-1 : 0) : -1;
+
     }
 
-    public SPECppModelInfo(String runIdentifier, int initialPlaceCount, int postProcessedPlaceCount, int postProcessedArcsCount, double postProcessedAvgOutDegree, double postProcessedAvgInDegree) {
+    public SPECppModelInfo(String runIdentifier, int initialPlaceCount, int postProcessedPlaceCount, int postProcessedArcsCount, int danglingTransitions, int subcomponents) {
         super(runIdentifier, "SPECppModelInfo");
         this.initialPlaceCount = initialPlaceCount;
         this.postProcessedPlaceCount = postProcessedPlaceCount;
         this.postProcessedArcsCount = postProcessedArcsCount;
-        this.postProcessedAvgOutDegree = postProcessedAvgOutDegree;
-        this.postProcessedAvgInDegree = postProcessedAvgInDegree;
+        this.danglingTransitions = danglingTransitions;
+        this.subcomponents = subcomponents;
     }
 
 
@@ -58,6 +58,39 @@ public class SPECppModelInfo extends BatchedExecutionResult {
 
     @Override
     public String[] toRow() {
-        return new String[]{runIdentifier, Integer.toString(initialPlaceCount), Integer.toString(postProcessedPlaceCount), Integer.toString(postProcessedArcsCount), Double.toString(postProcessedAvgOutDegree), Double.toString(postProcessedAvgInDegree)};
+        return new String[]{runIdentifier, Integer.toString(initialPlaceCount), Integer.toString(postProcessedPlaceCount), Integer.toString(postProcessedArcsCount), Integer.toString(danglingTransitions), Integer.toString(subcomponents)};
     }
+
+    public int getSubcomponents(ProMPetrinetWrapper model) {
+        DirectedGraph<? extends DirectedGraphNode,? extends DirectedGraphEdge> g = model.getGraph();
+        int components = 0;
+        Map<DirectedGraphNode, Boolean> visited = new HashMap<>();
+
+        for (DirectedGraphNode n : g.getNodes()) {
+            visited.put(n, false);
+        }
+        for (DirectedGraphNode n : g.getNodes()) {
+            if(!visited.get(n)) {
+                DFS(g, n, visited);
+                components++;
+            }
+        }
+        return components;
+    }
+
+    public void DFS(DirectedGraph<?,?> g, DirectedGraphNode n, Map<DirectedGraphNode, Boolean> visited) {
+        visited.put(n, true);
+
+        for (DirectedGraphEdge<?, ?> edge : g.getOutEdges(n)) {
+            if (!visited.get(edge.getTarget())) {
+                DFS(g, edge.getTarget(), visited);
+            }
+        }
+        for (DirectedGraphEdge<?, ?> edge : g.getInEdges(n)) {
+            if (!visited.get(edge.getSource())) {
+                DFS(g, edge.getSource(), visited);
+            }
+        }
+    }
+
 }

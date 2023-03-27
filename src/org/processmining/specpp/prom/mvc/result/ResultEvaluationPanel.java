@@ -5,6 +5,7 @@ import org.deckfour.xes.classification.XEventClass;
 import org.deckfour.xes.classification.XEventClassifier;
 import org.deckfour.xes.model.XLog;
 import org.processmining.framework.plugin.PluginContext;
+import org.processmining.models.graphbased.directed.petrinet.elements.ExpandableSubNet;
 import org.processmining.plugins.connectionfactories.logpetrinet.TransEvClassMapping;
 import org.processmining.specpp.datastructures.petri.ProMPetrinetWrapper;
 import org.processmining.specpp.datastructures.util.ImmutableTuple2;
@@ -14,6 +15,7 @@ import org.processmining.specpp.supervision.supervisors.DebuggingSupervisor;
 import org.processmining.specpp.util.EvalUtils;
 
 import javax.swing.*;
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 

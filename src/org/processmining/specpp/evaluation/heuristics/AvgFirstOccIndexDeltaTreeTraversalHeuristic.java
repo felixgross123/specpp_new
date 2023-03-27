@@ -171,7 +171,7 @@ public class AvgFirstOccIndexDeltaTreeTraversalHeuristic implements HeuristicStr
         }
 
         delta = delta / (node.getPlace().preset().size() * node.getPlace().postset().size());
-
+        
         double score =  alpha * (delta / maxDelta) + (1-alpha) * ((double) node.getPlace().size() / maxSize);
         return new TreeNodeScore(score);
     }

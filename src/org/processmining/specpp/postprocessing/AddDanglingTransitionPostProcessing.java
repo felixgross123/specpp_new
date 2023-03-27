@@ -16,6 +16,8 @@ public class AddDanglingTransitionPostProcessing implements PostProcessor<ProMPe
 
     private final Set<Transition> allTransitions;
 
+    public static int danglingTransitions = 0;
+
     public static class Builder extends ComponentSystemAwareBuilder<AddDanglingTransitionPostProcessing> {
 
         private final DelegatingDataSource<IntEncodings<Transition>> encTransSource = new DelegatingDataSource<>();
@@ -36,6 +38,7 @@ public class AddDanglingTransitionPostProcessing implements PostProcessor<ProMPe
 
     @Override
     public ProMPetrinetWrapper postProcess(ProMPetrinetWrapper input) {
+        danglingTransitions = 0;
         ProMPetrinetWrapper copy = input.copy();
         Set<String> collect = copy.getTransitions()
                                   .stream()
@@ -45,6 +48,7 @@ public class AddDanglingTransitionPostProcessing implements PostProcessor<ProMPe
             String s = transition.toString();
             if (!collect.contains(s)) {
                 copy.addTransition(s);
+                danglingTransitions++;
             }
         }
         return copy;

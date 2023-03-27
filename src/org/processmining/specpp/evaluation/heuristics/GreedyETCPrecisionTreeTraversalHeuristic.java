@@ -10,6 +10,7 @@ import org.processmining.specpp.config.parameters.AlphaTreeTraversalHeuristic;
 import org.processmining.specpp.datastructures.encoding.IntEncodings;
 import org.processmining.specpp.datastructures.log.Activity;
 import org.processmining.specpp.datastructures.log.Log;
+import org.processmining.specpp.datastructures.log.impls.Factory;
 import org.processmining.specpp.datastructures.petri.Place;
 import org.processmining.specpp.datastructures.petri.Transition;
 import org.processmining.specpp.datastructures.tree.base.HeuristicStrategy;
@@ -147,12 +148,16 @@ public class GreedyETCPrecisionTreeTraversalHeuristic extends AbstractBaseClass 
                     sumEPostSet += activityToEscapingEdges.get(a);
                 }
 
-                int sumE = 0;
+                int maxE = 0;
                 for(Activity a : actTransMapping.keySet()) {
-                    sumE += activityToEscapingEdges.get(a);
+                    if(!a.equals(Factory.ARTIFICIAL_START)) {
+                        if (activityToEscapingEdges.get(a) > maxE) {
+                            maxE = activityToEscapingEdges.get(a);
+                        }
+                    }
                 }
 
-                double score = (alpha) * ((double) sumEPostSet / sumE) + (1-alpha) * (1 - ((double) p.size() / maxSize));
+                double score = (alpha) * (((double) sumEPostSet / p.postset().size())/ maxE) + (1-alpha) * (1 - ((double) p.size() / maxSize));
                 return new TreeNodeScore(score);
 
             }

@@ -130,16 +130,15 @@ public class UpdatingGreedyETCPrecisionTreeTraversalHeuristic extends UpdatableH
         Set<Activity> actvitiesChanged = new HashSet<>();
 
         Map<Activity, Integer> activitiesToEscapingEdges = delegatingDataSourceE.getData();
-        Map<Activity, Integer> activitiesToAllowed = delegatingDataSourceA.getData();
 
         for(Transition t : pO.postset()) {
             Activity a = actTransMapping.get().getKey(t);
-            if(activitiesToEscapingEdgesPrevious.isEmpty() && activitiesToAllowedPrevious.isEmpty()) {
+            if(activitiesToEscapingEdgesPrevious.isEmpty()) {
                 //only at the first accepted place: add all postset activities
                 actvitiesChanged.add(a);
             } else {
                 //check if EE Score has changed
-                if (!activitiesToEscapingEdgesPrevious.get(a).equals(activitiesToEscapingEdges.get(a)) || !activitiesToAllowedPrevious.get(a).equals(activitiesToAllowed.get(a))) {
+                if (!activitiesToEscapingEdgesPrevious.get(a).equals(activitiesToEscapingEdges.get(a))) {
                     actvitiesChanged.add(a);
                 }
             }
@@ -158,7 +157,6 @@ public class UpdatingGreedyETCPrecisionTreeTraversalHeuristic extends UpdatableH
 
         //update previous map
         activitiesToEscapingEdgesPrevious = new HashMap<>(delegatingDataSourceE.getData());
-        activitiesToAllowedPrevious = new HashMap<>(delegatingDataSourceA.getData());
     }
 
 
